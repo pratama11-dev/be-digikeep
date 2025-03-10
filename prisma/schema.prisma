@@ -7,22 +7,19 @@ generator client {
 datasource db {
   provider = "postgres"
   url      = env("DATABASE_URL")
-  schemas  = ["user", "formula"]
+  schemas  = ["user", "document", "bp"]
 }
 
 model user {
-  id          Int       @id() @default(autoincrement())
-  id_role     Int?
-  name        String?
-  type_doc    String?
-  no_document String?
-  email       String?   @unique(map: "UQ__user__AB6E61649A5D8E7D")
-  password    String?   @db.VarChar(255)
-  created_at  DateTime?
-  updated_at  DateTime?
+  id         Int       @id() @default(autoincrement())
+  id_role    Int?
+  name       String?
+  email      String?   @unique(map: "UQ__user__AB6E61649A5D8E7D")
+  password   String?   @db.VarChar(255)
+  created_at DateTime?
+  updated_at DateTime?
 
   user_role user_role? @relation(fields: [id_role], references: [id])
-  orders    orders[]
 
   @@index([id])
   @@schema("user")
@@ -38,104 +35,79 @@ model user_role {
   @@schema("user")
 }
 
-// order
-model order_status {
+model document {
+  id              Int       @id() @default(autoincrement())
+  title           String?
+  id_category     Int?
+  id_status       Int?
+  id_bp           Int?
+  nomer_pengajuan String?
+  bl_code         String?
+  bs_code         String?
+  created_by      String?
+  updated_by      String?
+  created_at      DateTime?
+  updated_at      DateTime?
+
+  document_attachment document_attachment[]
+  document_category   document_category?    @relation(fields: [id_category], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  document_status     document_status?      @relation(fields: [id_status], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  business_partner    business_partner?     @relation(fields: [id_bp], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([id])
+  @@schema("document")
+}
+
+model document_category {
+  id         Int       @id() @default(autoincrement())
+  category   String?
+  created_by String?
+  updated_by String?
+  created_at DateTime?
+  updated_at DateTime?
+
+  document document[]
+
+  @@index([id])
+  @@schema("document")
+}
+
+model document_status {
   id     Int     @id() @default(autoincrement())
   status String?
 
-  orders orders[]
+  document document[]
 
   @@index([id])
-  @@schema("formula")
+  @@schema("document")
 }
 
-model orders {
-  id           Int       @id() @default(autoincrement())
-  id_user      Int?
-  id_status    Int?
-  total_amount Int?
-  remark       String?
-  total_price  Decimal?  @db.Decimal(19, 6)
-  created_at   DateTime?
-  updated_at   DateTime?
-
-  order_item       order_item[]
-  order_attachment order_attachment[]
-  user             user?              @relation(fields: [id_user], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  order_status     order_status?      @relation(fields: [id_status], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([id])
-  @@schema("formula")
-}
-
-model order_attachment {
+model document_attachment {
   id              Int       @id @default(autoincrement())
-  id_order        Int?
+  id_doc          Int?
   file_attachment String?   @db.VarChar(300)
+  description     String?   @db.VarChar(300)
   last_updated_by Int?
+  created_by      String?
+  updated_by      String?
   created_at      DateTime?
+  updated_at      DateTime?
 
-  orders orders? @relation(fields: [id_order], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  document document? @relation(fields: [id_doc], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([id])
-  @@schema("formula")
+  @@schema("document")
 }
 
-model order_item {
-  id          Int       @id() @default(autoincrement())
-  id_order    Int?
-  id_ticket   Int?      @unique
-  id_event    Int
-  type_ticket String?
-  price       Decimal?  @db.Decimal(19, 6)
-  created_at  DateTime?
-  updated_at  DateTime?
+model business_partner {
+  id      Int     @id() @default(autoincrement())
+  name    String?
+  address String?
+  contact String?
+  code    String?
 
-  tickets tickets? @relation(fields: [id_ticket], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  event   event?   @relation(fields: [id_event], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  orders  orders?  @relation(fields: [id_order], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  document document[]
 
   @@index([id])
-  @@schema("formula")
-}
-
-model tickets {
-  id               Int      @id() @default(autoincrement())
-  // id_order_item    Int?
-  qr_code          String?  @db.VarChar(30)
-  ticket_owner     String?  @db.VarChar(50)
-  doc_ticket_owner String?  @db.VarChar(50)
-  type_doc         String?
-  is_active        Int?
-  price            Decimal? @db.Decimal(19, 6)
-
-  order_item order_item?
-
-  @@index([id])
-  @@schema("formula")
-}
-
-model event {
-  id         Int       @id() @default(autoincrement())
-  id_status  Int?
-  name       String?
-  event_date DateTime?
-  create_at  DateTime?
-  updated_at DateTime?
-
-  order_item   order_item[]
-  event_status event_status? @relation(fields: [id_status], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([id])
-  @@schema("formula")
-}
-
-model event_status {
-  id   Int     @id() @default(autoincrement())
-  name String?
-
-  event event[]
-
-  @@index([id])
-  @@schema("formula")
+  @@schema("document")
 }

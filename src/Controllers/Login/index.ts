@@ -149,3 +149,12 @@ export const createUser = async (req: Request, res: Response) => {
         return defaultErrorHandling(res, error);
     }
 };
+
+export const logoutUser = async (req: Request, res: Response) => {
+    try {
+        // Invalidate the refresh token on the client-side
+        return res.status(200).json({ message: "Logged out successfully" });
+    } catch (error) {
+        return defaultErrorHandling(res, error);
+    }
+};
