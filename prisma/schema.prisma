@@ -109,5 +109,5 @@ model business_partner {
   document document[]
 
   @@index([id])
-  @@schema("document")
+  @@schema("bp")
 }

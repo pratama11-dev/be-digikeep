@@ -1,16 +1,14 @@
 import { Router } from 'express';
 import passport from 'passport';
-import { checkAuth } from '../Middleware/checkAuth';
-import { getListUser, getSessions } from '../Controllers/Users';
+import { listBp } from '../Controllers/BusinessPartner';
 
 const router = Router();
 
 // Add passport middleware for JWT authentication
 router.use(passport.authenticate('jwt', { session: false }));
 
-router.get('/get-session', checkAuth(), getSessions);
+// bp
+router.post("/", listBp)
 
-// users
-router.post("/users/list", getListUser)
 
 export default router;

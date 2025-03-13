@@ -8,6 +8,7 @@ import * as swaggerDocument from "../swagger-output.json";
 import publicRoutes from "./Routes/publicRoutes";
 import protectedRoutes from "./Routes/protectedRoutes";
 import documentRoutes from "./Routes/documentRoutes";
+import bpRoutes from "./Routes/bpRoutes";
 import bodyParser from "body-parser";
 import { PrismaClient } from "@prisma/client";
 import cors from "cors";
@@ -40,6 +41,7 @@ app.set("views", path.join(__dirname, "html"));
 app.use("/public", publicRoutes);
 app.use("/api", protectedRoutes);
 app.use("/api/document", documentRoutes);
+app.use("/api/bp", bpRoutes);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 

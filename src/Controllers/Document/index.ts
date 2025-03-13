@@ -8,6 +8,7 @@ import * as path from 'path';
 import multer from "multer";
 import * as fs from "fs";
 import axios from "axios";
+import { Prisma } from '@prisma/client';
 
 export const storage = multer.diskStorage({
     destination: (req: Request, file: Express.Multer.File, cb: Function) => {
@@ -39,22 +40,39 @@ export const ListDocument = async (req: Request, res: Response) => {
                 take: z.number().optional(),
                 skip: z.number().optional(),
             }),
+            mode: z.enum(["accept", "decline", "created"]),
             search: z.string().optional(),
+            filters: z.any().optional()
         }).parse(req.body);
+
+        const where: Prisma.documentWhereInput = {
+            AND: [
+                i?.search !== "" ? {
+                    title: {
+                        contains: i.search
+                    }
+                } : undefined,
+                i?.mode === "created" ? {
+                    id_status: 1
+                } : i?.mode === "accept" ? {
+                    id_status: 2
+                } : {
+                    id_status: 3
+                },
+                i?.filters?.id_status?.length > 0 ? {
+                    id_status: {
+                        in: i?.filters?.id_status
+                    }
+                }: undefined
+            ]
+        }
 
         const data = await req.prisma.document.findMany({
             take: i?.pagination?.take,
             skip: i?.pagination?.skip,
-            where: {
-                AND: [
-                    i.search ? {
-                        title: {
-                            contains: i.search
-                        }
-                    } : undefined
-                ]
-            },
+            where,
             include: {
+                business_partner: true,
                 document_attachment: true,
                 document_category: true,
                 document_status: true
@@ -65,20 +83,44 @@ export const ListDocument = async (req: Request, res: Response) => {
         })
 
         const count = await req.prisma.document.count({
-            where: {
-                AND: [
-                    i.search ? {
-                        title: {
-                            contains: i.search
-                        }
-                    } : undefined
-                ]
-            }
+            where
         })
 
         return res.status(200).json({
             data: data,
             total: count
+        })
+    } catch (error) {
+        return defaultErrorHandling(res, error)
+    }
+}
+
+export const DocumentByStatus = async (req: Request, res: Response) => {
+    try {
+        const created = await req.prisma.document.count({
+            where: {
+                id_status: 1,
+            }
+        })
+
+        const decline = await req.prisma.document.count({
+            where: {
+                id_status: 2,
+            }
+        })
+
+        const accept = await req.prisma.document.count({
+            where: {
+                id_status: 2,
+            }
+        })
+
+        return res.status(200).json({
+            data: {
+                created,
+                decline,
+                accept,
+            },
         })
     } catch (error) {
         return defaultErrorHandling(res, error)
@@ -129,18 +171,27 @@ export const CreateDocument = async (req: Request, res: Response) => {
                 nomer_pengajuan: z.string().optional().nullable(),
                 bl_code: z.string().optional().nullable(),
                 bs_code: z.string().optional().nullable(),
-                id_bp: z.number().optional().nullable(),
+                id_bp: z.string().optional().nullable(),
                 new_bp: z.string().optional().nullable()
             }).parse(req.body);
 
             let bp
 
             if (i?.new_bp) {
-                bp = await req.prisma.business_partner.create({
-                    data: {
+                // check again
+                bp = await req.prisma.business_partner.findFirst({
+                    where: {
                         name: i?.new_bp
                     }
                 })
+
+                if (!bp) {
+                    bp = await req.prisma.business_partner.create({
+                        data: {
+                            name: i?.new_bp
+                        }
+                    })
+                }
             }
 
             // find category
@@ -159,8 +210,6 @@ export const CreateDocument = async (req: Request, res: Response) => {
                     }
                 })
             }
-            console.log("asd", req.user);
-
 
             const data = await req.prisma.document.create({
                 data: {
@@ -172,7 +221,7 @@ export const CreateDocument = async (req: Request, res: Response) => {
                     nomer_pengajuan: i?.nomer_pengajuan,
                     bs_code: i?.bs_code,
                     bl_code: i?.bl_code,
-                    id_bp: i?.id_bp ?? bp?.id
+                    id_bp: parseInt(i?.id_bp) ?? bp?.id
                 }
             })
 
@@ -211,6 +260,29 @@ export const deleteDocument = async (req: Request, res: Response) => {
             id: z.number()
         }).parse(req.body)
 
+        const attachment = await req.prisma.document_attachment.findMany({
+            where: {
+                id_doc: i.id,
+            },
+        });
+
+        for await (const element of attachment) {
+            const filePath = path.join(process.cwd(), 'pdf', 'upload', element.file_attachment);
+
+            // Delete the file from the server
+            await new Promise<void>((resolve, reject) => {
+                fs.unlink(filePath, (err) => {
+                    if (err) {
+                        console.error('Error deleting file:', err);
+                        reject(new Error('Error deleting file'));
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+        }
+
+
         const data = await req.prisma.document.delete({
             where: {
                 id: i?.id
@@ -219,6 +291,94 @@ export const deleteDocument = async (req: Request, res: Response) => {
 
         return res.status(200).json({
             data
+        })
+    } catch (error) {
+        return defaultErrorHandling(res, error)
+    }
+}
+
+export const updateDoc = async (req: Request, res: Response) => {
+    try {
+        const i = z.object({
+            id: z.number(),
+            id_category: z.number().optional().nullable(),
+            name: z.string(),
+            nomer_pengajuan: z.string().optional().nullable(),
+            bl_code: z.string().optional().nullable(),
+            bs_code: z.string().optional().nullable(),
+            id_bp: z.number().optional().nullable()
+        }).parse(req.body);
+
+        const data = await req.prisma.document.update({
+            where: {
+                id: i?.id
+            },
+            data: {
+                created_by: req.user.name,
+                updated_at: DateUtil?.CurDate(),
+                id_category: i?.id_category,
+                title: i?.name,
+                nomer_pengajuan: i?.nomer_pengajuan,
+                bs_code: i?.bs_code,
+                bl_code: i?.bl_code,
+                id_bp: i?.id_bp
+            }
+        })
+
+        return res.status(200).json({
+            data
+        })
+    } catch (error) {
+        return defaultErrorHandling(res, error)
+    }
+}
+
+export const ListCategoryDocument = async (req: Request, res: Response) => {
+    try {
+        const i = z.object({
+            pagination: z.object({
+                take: z.number().optional(),
+                skip: z.number().optional(),
+            }),
+            search: z.string().optional(),
+        }).parse(req.body);
+
+        const data = await req.prisma.document_category.findMany({
+            take: i?.pagination?.take ?? 100,
+            skip: i?.pagination?.skip ?? 0
+        })
+        
+        const total = await req.prisma.document_category?.count({
+            where: {
+
+            }
+        })
+
+        return res.status(200).json({
+            data,
+            total
+        })
+    } catch (error) {
+        return defaultErrorHandling(res, error)
+    }
+}
+
+export const AddCategory = async (req: Request, res: Response) => {
+    try {
+        const i = z.object({
+            category: z.string()
+        }).parse(req.body)
+
+        const data = await req.prisma.document_category.create({
+            data: {
+                category: i?.category,
+                created_at: DateUtil?.CurDate(),
+                created_by: req.user.name
+            }
+        })
+
+        return res.status(200).json({
+            // data
         })
     } catch (error) {
         return defaultErrorHandling(res, error)
