@@ -9,6 +9,7 @@ import multer from "multer";
 import * as fs from "fs";
 import axios from "axios";
 import { Prisma } from '@prisma/client';
+import { saveSignatureToFile } from '../../Utils/fsUtil';
 
 export const storage = multer.diskStorage({
     destination: (req: Request, file: Express.Multer.File, cb: Function) => {
@@ -63,7 +64,7 @@ export const ListDocument = async (req: Request, res: Response) => {
                     id_status: {
                         in: i?.filters?.id_status
                     }
-                }: undefined
+                } : undefined
             ]
         }
 
@@ -105,7 +106,7 @@ export const DocumentByStatus = async (req: Request, res: Response) => {
 
         const decline = await req.prisma.document.count({
             where: {
-                id_status: 2,
+                id_status: 3,
             }
         })
 
@@ -347,7 +348,7 @@ export const ListCategoryDocument = async (req: Request, res: Response) => {
             take: i?.pagination?.take ?? 100,
             skip: i?.pagination?.skip ?? 0
         })
-        
+
         const total = await req.prisma.document_category?.count({
             where: {
 
@@ -374,6 +375,40 @@ export const AddCategory = async (req: Request, res: Response) => {
                 category: i?.category,
                 created_at: DateUtil?.CurDate(),
                 created_by: req.user.name
+            }
+        })
+
+        return res.status(200).json({
+            data
+        })
+    } catch (error) {
+        return defaultErrorHandling(res, error)
+    }
+}
+
+export const SetDecisionDoc = async (req: Request, res: Response) => {
+    try {
+        const input = z
+            .object({
+                id_doc: z.number(),
+                ttd: z.string(),
+                note: z.string().optional().nullable(),
+                desicion: z.enum(["accept" ,"decline"])
+            })
+            .parse(req.body);
+
+        const signaturePath = await saveSignatureToFile(input.ttd)
+
+        const data = await req.prisma.document.update({
+            where: {
+                id: input?.id_doc
+            },
+            data: {
+                id_status: input?.desicion == "accept" ? 2 : 3,
+                signature: signaturePath,
+                review_by: req?.user?.name,
+                updated_at: DateUtil?.CurDate(),
+                note: input?.note
             }
         })
 

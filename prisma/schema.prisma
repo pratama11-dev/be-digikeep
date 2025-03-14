@@ -42,10 +42,13 @@ model document {
   id_status       Int?
   id_bp           Int?
   nomer_pengajuan String?
+  signature       String?
   bl_code         String?
   bs_code         String?
   created_by      String?
   updated_by      String?
+  review_by       String?
+  note            String?
   created_at      DateTime?
   updated_at      DateTime?
 

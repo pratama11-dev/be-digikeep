@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { checkAuth } from '../Middleware/checkAuth';
-import { AddCategory, CreateDocument, deleteDocument, DetailDocument, DocumentByStatus, ListCategoryDocument, ListDocument, updateDoc } from '../Controllers/Document';
+import { AddCategory, CreateDocument, deleteDocument, DetailDocument, DocumentByStatus, ListCategoryDocument, ListDocument, SetDecisionDoc, updateDoc } from '../Controllers/Document';
 import { listBp } from '../Controllers/BusinessPartner';
 
 const router = Router();
@@ -16,6 +16,7 @@ router.post("/detail", DetailDocument)
 router.post("/add", CreateDocument)
 router.post("/update", updateDoc)
 router.post("/delete", deleteDocument)
+router.post("/desicion", SetDecisionDoc)
 
 // categories
 router.post("/categories", ListCategoryDocument)
